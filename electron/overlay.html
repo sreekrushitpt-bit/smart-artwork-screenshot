@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        font-family: 'Segoe UI', -apple-system, sans-serif;
+      }
+      html,
+      body {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+        background: #07090e;
+        cursor: crosshair;
+      }
+      #backdrop {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100vh;
+        object-fit: fill;
+        pointer-events: none;
+      }
+      .mask {
+        position: fixed;
+        background: rgba(8, 11, 18, 0.58);
+        pointer-events: none;
+      }
+      #selection {
+        position: fixed;
+        border: 2px solid #818cf8;
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.85);
+        cursor: move;
+        display: none;
+      }
+      .handle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background: #ffffff;
+        border: 1.5px solid #4f46e5;
+        border-radius: 2px;
+      }
+      #hud {
+        position: fixed;
+        background: rgba(15, 23, 42, 0.94);
+        border: 1px solid #334155;
+        color: #f1f5f9;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-family: Consolas, monospace;
+        pointer-events: none;
+        white-space: nowrap;
+        display: none;
+      }
+      #banner {
+        position: fixed;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid #334155;
+        color: #f8fafc;
+        padding: 7px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <img id="backdrop" alt="" />
+    <div id="m-top" class="mask"></div>
+    <div id="m-bottom" class="mask"></div>
+    <div id="m-left" class="mask"></div>
+    <div id="m-right" class="mask"></div>
+    <div id="selection">
+      <div class="handle" data-h="nw" style="left:-5px;top:-5px;cursor:nwse-resize;"></div>
+      <div class="handle" data-h="n" style="left:calc(50% - 5px);top:-5px;cursor:ns-resize;"></div>
+      <div class="handle" data-h="ne" style="right:-5px;top:-5px;cursor:nesw-resize;"></div>
+      <div class="handle" data-h="e" style="right:-5px;top:calc(50% - 5px);cursor:ew-resize;"></div>
+      <div class="handle" data-h="se" style="right:-5px;bottom:-5px;cursor:nwse-resize;"></div>
+      <div class="handle" data-h="s" style="left:calc(50% - 5px);bottom:-5px;cursor:ns-resize;"></div>
+      <div class="handle" data-h="sw" style="left:-5px;bottom:-5px;cursor:nesw-resize;"></div>
+      <div class="handle" data-h="w" style="left:-5px;top:calc(50% - 5px);cursor:ew-resize;"></div>
+    </div>
+    <div id="hud"></div>
+    <div id="banner">Drag to select artwork · Resize handles · Arrow keys 1px nudge · Enter: Capture · Esc: Cancel</div>
+
+    <script>
+      const backdropEl = document.getElementById('backdrop');
+      const selEl = document.getElementById('selection');
+      const hudEl = document.getElementById('hud');
+      const mTop = document.getElementById('m-top');
+      const mBot = document.getElementById('m-bottom');
+      const mLeft = document.getElementById('m-left');
+      const mRight = document.getElementById('m-right');
+
+      let imgWidth = window.innerWidth;
+      let imgHeight = window.innerHeight;
+      let rect = null; // in screen CSS pixels
+      let dragMode = '';
+      let startX = 0;
+      let startY = 0;
+      let origRect = null;
+
+      function clampRect(r) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const x = Math.max(0, Math.min(vw - 8, Math.round(r.x)));
+        const y = Math.max(0, Math.min(vh - 8, Math.round(r.y)));
+        const w = Math.max(8, Math.min(vw - x, Math.round(r.width)));
+        const h = Math.max(8, Math.min(vh - y, Math.round(r.height)));
+        return { x, y, width: w, height: h };
+      }
+
+      function render() {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        if (!rect) {
+          selEl.style.display = 'none';
+          hudEl.style.display = 'none';
+          mTop.style.cssText = `left:0;top:0;width:${vw}px;height:${vh}px;`;
+          mBot.style.cssText = 'display:none;';
+          mLeft.style.cssText = 'display:none;';
+          mRight.style.cssText = 'display:none;';
+          return;
+        }
+        selEl.style.display = 'block';
+        selEl.style.left = rect.x + 'px';
+        selEl.style.top = rect.y + 'px';
+        selEl.style.width = rect.width + 'px';
+        selEl.style.height = rect.height + 'px';
+
+        mTop.style.cssText = `left:0;top:0;width:${vw}px;height:${rect.y}px;`;
+        mBot.style.cssText = `left:0;top:${rect.y + rect.height}px;width:${vw}px;height:${Math.max(0, vh - rect.y - rect.height)}px;`;
+        mLeft.style.cssText = `left:0;top:${rect.y}px;width:${rect.x}px;height:${rect.height}px;`;
+        mRight.style.cssText = `left:${rect.x + rect.width}px;top:${rect.y}px;width:${Math.max(0, vw - rect.x - rect.width)}px;height:${rect.height}px;`;
+
+        const scaleX = imgWidth / vw;
+        const scaleY = imgHeight / vh;
+        const pxW = Math.round(rect.width * scaleX);
+        const pxH = Math.round(rect.height * scaleY);
+        hudEl.textContent = `${pxW} × ${pxH} px  (Enter: Capture · Esc: Cancel)`;
+        hudEl.style.display = 'block';
+        hudEl.style.left = Math.max(8, Math.min(vw - 260, rect.x)) + 'px';
+        hudEl.style.top = (rect.y > 38 ? rect.y - 32 : rect.y + rect.height + 10) + 'px';
+      }
+
+      if (window.electronOverlayAPI) {
+        window.electronOverlayAPI.onInit((payload) => {
+          backdropEl.src = payload.dataUrl;
+          imgWidth = payload.width;
+          imgHeight = payload.height;
+          if (payload.initialBox) {
+            const sx = window.innerWidth / imgWidth;
+            const sy = window.innerHeight / imgHeight;
+            rect = clampRect({
+              x: payload.initialBox.x * sx,
+              y: payload.initialBox.y * sy,
+              width: payload.initialBox.width * sx,
+              height: payload.initialBox.height * sy,
+            });
+          } else {
+            rect = null;
+          }
+          render();
+        });
+      }
+
+      document.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        const handle = e.target.getAttribute && e.target.getAttribute('data-h');
+        startX = e.clientX;
+        startY = e.clientY;
+        if (handle && rect) {
+          dragMode = handle;
+          origRect = { ...rect };
+        } else if (e.target === selEl && rect) {
+          dragMode = 'move';
+          origRect = { ...rect };
+        } else {
+          dragMode = 'create';
+          rect = { x: startX, y: startY, width: 4, height: 4 };
+          origRect = { ...rect };
+        }
+        render();
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragMode) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        if (dragMode === 'create') {
+          rect = clampRect({
+            x: Math.min(startX, e.clientX),
+            y: Math.min(startY, e.clientY),
+            width: Math.abs(dx),
+            height: Math.abs(dy),
+          });
+        } else if (dragMode === 'move' && origRect) {
+          rect = clampRect({
+            x: origRect.x + dx,
+            y: origRect.y + dy,
+            width: origRect.width,
+            height: origRect.height,
+          });
+        } else if (origRect) {
+          let l = origRect.x;
+          let t = origRect.y;
+          let r = origRect.x + origRect.width;
+          let b = origRect.y + origRect.height;
+          if (dragMode.includes('w')) l = Math.min(r - 12, origRect.x + dx);
+          if (dragMode.includes('e')) r = Math.max(l + 12, origRect.x + origRect.width + dx);
+          if (dragMode.includes('n')) t = Math.min(b - 12, origRect.y + dy);
+          if (dragMode.includes('s')) b = Math.max(t + 12, origRect.y + origRect.height + dy);
+          rect = clampRect({ x: l, y: t, width: r - l, height: b - t });
+        }
+        render();
+      });
+
+      document.addEventListener('mouseup', () => {
+        dragMode = '';
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          window.electronOverlayAPI?.cancel();
+          return;
+        }
+        if (e.key === 'Enter' && rect && rect.width >= 8 && rect.height >= 8) {
+          const sx = imgWidth / window.innerWidth;
+          const sy = imgHeight / window.innerHeight;
+          window.electronOverlayAPI?.confirm({
+            x: Math.round(rect.x * sx),
+            y: Math.round(rect.y * sy),
+            width: Math.round(rect.width * sx),
+            height: Math.round(rect.height * sy),
+          });
+          return;
+        }
+        if (rect && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+          e.preventDefault();
+          const step = e.shiftKey ? 10 : 1;
+          const next = { ...rect };
+          if (e.key === 'ArrowLeft') next.x -= step;
+          if (e.key === 'ArrowRight') next.x += step;
+          if (e.key === 'ArrowUp') next.y -= step;
+          if (e.key === 'ArrowDown') next.y += step;
+          rect = clampRect(next);
+          render();
+        }
+      });
+    </script>
+  </body>
+</html>

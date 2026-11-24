@@ -1,0 +1,6 @@
+{
+  "name": "Smart Artwork Screenshot",
+  "description": "Precision desktop screenshot utility for graphic designers to detect, crop, and auto-copy artwork boundaries from CorelDRAW, Photoshop, Illustrator, and InDesign.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

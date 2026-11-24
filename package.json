@@ -1,0 +1,50 @@
+{
+  "name": "smart-artwork-screenshot",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Artwork Screenshot — Windows desktop utility for graphic designers",
+  "author": "Smart Artwork Screenshot",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "start": "NODE_ENV=production tsx server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist server.js release",
+    "lint": "tsc --noEmit",
+    "electron:dev": "concurrently -k \"vite --port=3000\" \"wait-on http://localhost:3000 && ELECTRON_DEV=true electron .\"",
+    "electron:start": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:win:dir": "npm run build && electron-builder --win --dir"
+  },
+  "dependencies": {
+    "@google/genai": "^3.6.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "dotenv": "^17.2.3",
+    "electron-updater": "^6.8.11",
+    "express": "^4.21.2",
+    "jszip": "^3.10.2",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^10.0.7",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.21.0",
+    "typescript": "^7.0.2",
+    "wait-on": "^9.5.1"
+  }
+}

@@ -1,0 +1,32 @@
+appId: com.smartartwork.screenshot
+productName: Smart Artwork Screenshot
+copyright: Copyright © 2026 Smart Artwork Screenshot
+directories:
+  buildResources: build
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - build/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+  requestedExecutionLevel: asInvoker
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Smart Artwork Screenshot
+  uninstallDisplayName: Smart Artwork Screenshot
+portable:
+  artifactName: ${productName}-Portable-${version}.exe
